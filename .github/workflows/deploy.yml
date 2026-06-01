@@ -33,11 +33,11 @@ jobs:
       - name: Install dependencies
         run: npm install
         
+      - name: Create .env
+        run: echo "VITE_GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}" > .env
+        
       - name: Build static site
         run: npm run build
-        env:
-          # Injecting the API key during Vite build step
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
           
       - name: Setup Pages
         uses: actions/configure-pages@v4
