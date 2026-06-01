@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { UploadCloud, TrendingUp, TrendingDown, RefreshCcw, Loader2, Image as ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { GoogleGenAI } from "@google/genai";
 
 export default function ChartAnalyzer() {
   const [file, setFile] = useState<File | null>(null);
@@ -50,25 +51,60 @@ export default function ChartAnalyzer() {
     setResult(null);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to analyze chart.");
+      // ⚠️ WARNING: Using API keys in the client side is generally discouraged for public apps.
+      // However, it's required here because GitHub Pages does not support Node.js backend servers.
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("API Key is missing! Please set VITE_GEMINI_API_KEY in GitHub Secrets.");
       }
 
-      setResult(data.result);
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const base64Data = (reader.result as string).split(',')[1];
+          const ai = new GoogleGenAI({ apiKey });
+          
+          const prompt = `You are an expert price-action chart analyst.\n\nAnalyze the uploaded trading chart screenshot and determine the most likely short-term direction based only on visible price action, candle structure, momentum, trend, support/resistance, and market structure.\n\nRules:\n- Respond with ONLY one word: UP or DOWN\n- Do not explain.\n- Do not add extra text.\n- Output must contain exactly one word: UP or DOWN.\n\nMarket Type: OTC\nChart Timeframe: 5 Minutes\nTrade Duration: 15 Seconds`;
+
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [
+              prompt,
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: file.type,
+                },
+              },
+            ],
+            config: { temperature: 0.1 },
+          });
+
+          const textResponse = response.text || "";
+          const upperText = textResponse.trim().toUpperCase();
+          
+          let resStatus = "UNKNOWN";
+          if (upperText.includes("UP")) {
+            resStatus = "UP";
+          } else if (upperText.includes("DOWN")) {
+            resStatus = "DOWN";
+          }
+
+          setResult(resStatus as "UP" | "DOWN" | "UNKNOWN");
+        } catch (err: any) {
+          setError(err.message || "Failed to analyze chart.");
+        } finally {
+          setAnalyzing(false);
+        }
+      };
+      reader.onerror = () => {
+        setError("Failed to read file.");
+        setAnalyzing(false);
+      };
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
-    } finally {
       setAnalyzing(false);
     }
   };
