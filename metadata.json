@@ -1,0 +1,8 @@
+{
+  "name": "Chart Analyzer AI",
+  "description": "Upload OTC 5-minute charts to get instant UP/DOWN price-action analysis using Gemini Vision.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
